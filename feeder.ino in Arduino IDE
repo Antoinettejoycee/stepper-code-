@@ -1,0 +1,7 @@
+
+. Open feeder.ino in Arduino IDE
+. Install required libraries:
+   - Grove LCD
+   - Stepper
+. Connect hardware as shown in wiring diagram
+. Upload code to Arduino Uno
