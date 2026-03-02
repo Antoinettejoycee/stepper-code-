@@ -1,0 +1,57 @@
+
+
+#include <Wire.h>
+#include "rgb_lcd.h"
+
+rgb_lcd lcd;  // LCD object
+
+int startHour = 14;     // 14 = 2 PM
+int startMinute = 30;
+
+unsigned long startMillis;
+
+int buzzerPin = D8; // buzzer connected to digital pin 8
+bool alarmTriggered = false; // to trigger the alarm only once
+
+void setup() {
+  lcd.begin(16, 2);      // initialize LCD 16x2
+  lcd.setRGB(0, 255, 0); // green backlight
+  startMillis = millis();
+  
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);
+}
+
+void loop() {
+  unsigned long elapsedSeconds = (millis() - startMillis) / 1000;
+
+  int hours = (startHour + (elapsedSeconds / 3600)) % 24;
+  int minutes = (startMinute + (elapsedSeconds / 60)) % 60;
+
+  // Adjust hours if minutes overflow
+  if (startMinute + (elapsedSeconds / 60) >= 60) {
+    hours = (hours + 1) % 24;
+  }
+
+  // Display time on LCD
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+
+  // Alarm at 14:31
+  if (hours == 14 && minutes == 31 && !alarmTriggered) {
+    alarmTriggered = true; // make sure it only triggers once
+    for (int i = 0; i < 5; i++) { // beep 5 times
+      digitalWrite(buzzerPin, HIGH);
+      delay(500);
+      digitalWrite(buzzerPin, LOW);
+      delay(500);
+    }
+  }
+
+  delay(1000); // update every second
+}
