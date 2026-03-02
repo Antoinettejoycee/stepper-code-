@@ -1,0 +1,73 @@
+#include <Servo.h>
+#include <Wire.h>
+#include "rgb_lcd.h"
+
+Servo myservo;   
+rgb_lcd lcd;  
+
+// --- Servo + Potentiometer ---
+int potpin = A0;   // Pot connected to A0
+int val;           // Reading from potentiometer
+
+// --- Clock + Buzzer ---
+int startHour = 14;     // Start at 2:30 PM
+int startMinute = 30;
+unsigned long startMillis;
+
+int buzzerPin = 8;     // Buzzer connected to digital pin 8
+bool alarmTriggered = false; 
+
+void setup() {
+  // --- Servo setup ---
+  myservo.attach(7);   // Servo on pin 3
+  
+  // --- LCD + Buzzer setup ---
+  lcd.begin(16, 2);
+  lcd.setRGB(0, 255, 0); // Green backlight
+  startMillis = millis();
+
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);
+}
+
+void loop() {
+  // --- Servo control ---
+  val = analogRead(potpin);
+  val = map(val, 0, 1023, 0, 180);
+  myservo.write(val);
+  
+  // --- Clock simulation ---
+  unsigned long elapsedSeconds = (millis() - startMillis) / 1000;
+  int hours = startHour + (elapsedSeconds / 3600);
+  int minutes = startMinute + ((elapsedSeconds % 3600) / 60);
+
+  // Overflow correction
+  if (minutes >= 60) {
+    hours += minutes / 60;
+    minutes %= 60;
+  }
+  hours %= 24;
+
+  // --- Show on LCD ---
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+  lcd.print("   "); // Clear old digits
+
+  // --- Trigger buzzer 1 minute later (14:31) ---
+  if (hours == 14 && minutes == 31 && !alarmTriggered) {
+    alarmTriggered = true;
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(buzzerPin, HIGH);
+      delay(500);
+      digitalWrite(buzzerPin, LOW);
+      delay(500);
+    }
+  }
+
+  delay(500); // Update twice per second
+}
