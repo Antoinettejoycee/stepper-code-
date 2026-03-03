@@ -1,0 +1,67 @@
+#include <Wire.h>           // Library for I2C communication (used by the LCD)
+#include "rgb_lcd.h"        // Library for the RGB LCD display
+
+rgb_lcd lcd;                // Create an instance of the RGB LCD class
+
+int startHour = 14;         // Starting hour for the clock (14 = 2 PM)
+int startMinute = 30;       // Starting minute for the clock (30 minutes past the hour)
+
+unsigned long startMillis;  // Stores the time (in milliseconds) when the program started
+
+int buzzerPin = D8;         // Pin where the buzzer is connected (digital pin 8)
+bool alarmTriggered = false; // Flag to ensure the alarm only triggers once
+
+void setup() {
+  lcd.begin(16, 2);          // Initialize the LCD with 16 columns and 2 rows
+  lcd.setRGB(0, 255, 0);     // Set the LCD backlight color to green
+
+  startMillis = millis();    // Record the time when the program starts
+
+  pinMode(buzzerPin, OUTPUT);  // Set buzzer pin as an output
+  digitalWrite(buzzerPin, LOW); // Ensure buzzer is off at the start
+}
+
+void loop() {
+  // Calculate how many seconds have passed since start
+  unsigned long elapsedSeconds = (millis() - startMillis) / 1000;
+
+  // Calculate the current hour based on elapsed time (wraps around 24)
+  int hours = (startHour + (elapsedSeconds / 3600)) % 24;
+
+  // Calculate the current minute based on elapsed time (wraps around 60)
+  int minutes = (startMinute + (elapsedSeconds / 60)) % 60;
+
+  // This condition tries to adjust the hour if minutes overflow 60,
+  // but due to the modulo above, it will never be true
+  if (startMinute + (elapsedSeconds / 60) >= 60) {
+    hours = (hours + 1) % 24;
+  }
+
+  // Display the time on the LCD at row 0, column 0
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+
+  // Add leading zero for single digit hours
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+
+  // Add leading zero for single digit minutes
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+
+  // Trigger the buzzer alarm once when time reaches 14:31
+  if (hours == 14 && minutes == 31 && !alarmTriggered) {
+    alarmTriggered = true;  // Mark alarm as triggered so it only happens once
+
+    // Beep the buzzer 5 times with 500ms on and 500ms off
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(buzzerPin, HIGH);  // Turn buzzer on
+      delay(500);                     // Wait 500 milliseconds
+      digitalWrite(buzzerPin, LOW);   // Turn buzzer off
+      delay(500);                     // Wait 500 milliseconds
+    }
+  }
+
+  delay(1000);  // Wait 1 second before updating time again
+}
