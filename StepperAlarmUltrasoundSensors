@@ -1,0 +1,86 @@
+#include <Wire.h>
+#include "rgb_lcd.h"
+#include "Ultrasonic.h"
+#include <Stepper.h>
+
+// -------- LCD --------
+rgb_lcd lcd;
+
+// -------- ULTRASONIC --------
+Ultrasonic ultrasonic(7);
+
+// -------- STEPPER --------
+const int stepsPerRevolution = 200;
+Stepper myStepper(stepsPerRevolution, 8, 9, 10, 11);
+
+// -------- CLOCK --------
+int startHour = 14;
+int startMinute = 30;
+unsigned long startMillis;
+
+// -------- BUZZER --------
+int buzzerPin = D8;
+bool alarmTriggered = false;
+
+void setup() {
+
+  lcd.begin(16, 2);
+  lcd.setRGB(0, 255, 0);
+
+  Serial.begin(9600);
+
+  startMillis = millis();
+
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);
+
+  myStepper.setSpeed(100);   // Set stepper speed
+}
+
+void loop() {
+
+  // -------- CLOCK SECTION --------
+  unsigned long elapsedSeconds = (millis() - startMillis) / 1000;
+
+  int totalMinutes = startMinute + (elapsedSeconds / 60);
+  int hours = (startHour + (totalMinutes / 60)) % 24;
+  int minutes = totalMinutes % 60;
+
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+  lcd.print("   ");
+
+  // -------- ULTRASONIC SECTION --------
+  long distanceCM = ultrasonic.MeasureInCentimeters();
+
+  Serial.print("Distance: ");
+  Serial.print(distanceCM);
+  Serial.println(" cm");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Dist: ");
+  lcd.print(distanceCM);
+  lcd.print(" cm   ");
+
+  // -------- ALARM SECTION --------
+  if (hours == 14 && minutes == 31 && !alarmTriggered) {
+    alarmTriggered = true;
+
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(buzzerPin, HIGH);
+      delay(500);
+      digitalWrite(buzzerPin, LOW);
+      delay(500);
+    }
+  }
+
+  // -------- STEPPER SECTION --------
+  myStepper.step(stepsPerRevolution);  // One full revolution
+
+  delay(500);
+}
