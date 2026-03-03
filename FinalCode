@@ -1,0 +1,137 @@
+#include <Wire.h>
+#include "rgb_lcd.h"
+#include "Ultrasonic.h"
+#include <Stepper.h>
+
+// -------- LCD --------
+rgb_lcd lcd;
+
+// -------- ULTRASONIC --------
+Ultrasonic ultrasonic(7);
+
+// -------- STEPPER --------
+const int stepsPerRevolution = 200;
+Stepper myStepper(stepsPerRevolution, 8, 9, 10, 11);
+
+// -------- CLOCK --------
+int startHour = 14;
+int startMinute = 30;
+unsigned long startMillis;
+
+// -------- BUZZER --------
+int buzzerPin = D8;
+bool alarmTriggered = false;
+
+// -------- LED --------
+int ledPin = 6;  // LED lights up when pet is within 30 cm
+
+// -------- BLINK MESSAGE --------
+bool showMessage = false;
+unsigned long messageStartMillis = 0;
+
+void setup() {
+  lcd.begin(16, 2);
+  lcd.setRGB(0, 255, 0);
+
+  Serial.begin(9600);
+
+  startMillis = millis();
+
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, LOW);
+
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+
+  myStepper.setSpeed(100);   // Set stepper speed
+}
+
+void loop() {
+  // -------- CLOCK SECTION --------
+  unsigned long elapsedSeconds = (millis() - startMillis) / 1000;
+  int totalMinutes = startMinute + (elapsedSeconds / 60);
+  int hours = (startHour + (totalMinutes / 60)) % 24;
+  int minutes = totalMinutes % 60;
+
+  lcd.setCursor(0, 0);
+  lcd.print("Time: ");
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+  lcd.print("   ");
+
+  // -------- ULTRASONIC SECTION --------
+  long distanceCM = ultrasonic.MeasureInCentimeters();
+
+  Serial.print("Distance: ");
+  Serial.print(distanceCM);
+  Serial.println(" cm");
+
+  // -------- LED INDICATOR --------
+  if (distanceCM <= 30) {
+    digitalWrite(ledPin, HIGH);  // LED ON
+  } else {
+    digitalWrite(ledPin, LOW);   // LED OFF
+  }
+
+  // -------- TIMED ALARM --------
+  if (hours == 14 && minutes == 31 && !alarmTriggered) {
+    alarmTriggered = true;
+
+    // Optional original alarm
+    for (int i = 0; i < 5; i++) {
+      digitalWrite(buzzerPin, HIGH);
+      delay(500);
+      digitalWrite(buzzerPin, LOW);
+      delay(500);
+    }
+  }
+
+  // -------- STEP MOTOR SECTION --------
+  if (distanceCM <= 30) {   // pet is close
+    myStepper.step(stepsPerRevolution);  // keep running continuously
+
+    // Start blinking message if not already started
+    if (!showMessage) {
+      showMessage = true;
+      messageStartMillis = millis();
+    }
+  }
+
+  // -------- BLINKING MESSAGE + LOW-PITCH DING --------
+  if (showMessage) {
+    unsigned long elapsed = millis() - messageStartMillis;
+    if (elapsed <= 15000) {  // 15 seconds
+
+      // ---- LCD BLINK ----
+      if ((elapsed / 500) % 2 == 0) {
+        lcd.setCursor(0, 1);
+        lcd.print("Food Dispensed!   ");
+      } else {
+        lcd.setCursor(0, 1);
+        lcd.print("                 "); // blank
+      }
+
+      // ---- LOW-PITCH DING ----
+      if ((elapsed % 3000) < 200) {
+        tone(buzzerPin, 262, 200);  // single ding
+      } else {
+        noTone(buzzerPin);          // off otherwise
+      }
+
+    } else {
+      showMessage = false;       // stop blinking and buzzer after 15 seconds
+      noTone(buzzerPin);         // ensure buzzer is off
+    }
+  } else {
+    // show distance if message is not blinking
+    lcd.setCursor(0, 1);
+    lcd.print("Dist: ");
+    lcd.print(distanceCM);
+    lcd.print(" cm   ");
+  }
+
+  delay(50); // small delay for smoother blinking, buzzer, and LED
+}
